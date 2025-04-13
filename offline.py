@@ -6,23 +6,23 @@ from PIL import Image
 import tensorflow as tf
 from feature_extractor import FeatureExtractor
 
-# Configure TensorFlow for low memory usage
+# Configure TensorFlow for minimal memory usage
 tf.config.set_soft_device_placement(True)
 tf.config.threading.set_inter_op_parallelism_threads(1)
 tf.config.threading.set_intra_op_parallelism_threads(1)
-tf.keras.backend.set_floatx('float16')  # Use half-precision
+tf.keras.backend.set_floatx('float16')
 
 def process_images(fe, img_paths):
     """Process images one at a time with memory cleanup"""
     Path("./static/feature").mkdir(parents=True, exist_ok=True)
     
-    for img_path in img_paths:
+    for i, img_path in enumerate(img_paths):
         try:
-            print(f"Processing {img_path.name}")
+            print(f"Processing {i+1}/{len(img_paths)}: {img_path.name}")
             with Image.open(img_path) as img:
                 feature = fe.extract(img)
                 feature_path = Path("./static/feature") / (img_path.stem + ".npy")
-                np.save(feature_path, feature.astype('float16'))  # Save space
+                np.save(feature_path, feature.astype('float16'))
         except Exception as e:
             print(f"Error processing {img_path}: {str(e)}")
         finally:
@@ -32,6 +32,7 @@ def process_images(fe, img_paths):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--resume', action='store_true', help='Skip existing features')
+    parser.add_argument('--batch-size', type=int, default=1, help='Images per batch')
     args = parser.parse_args()
 
     fe = FeatureExtractor()
