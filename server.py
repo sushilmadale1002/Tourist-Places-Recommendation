@@ -1,34 +1,42 @@
 import os
+import gc
 import numpy as np
-from PIL import Image
-from feature_extractor import FeatureExtractor
-from datetime import datetime
-from flask import Flask, request, render_template
 from pathlib import Path
-import gc  # For memory management
+from datetime import datetime
+from flask import Flask, request, render_template, send_from_directory
+from feature_extractor import FeatureExtractor
+from PIL import Image
 
 app = Flask(__name__)
 
-# Initialize variables that will be loaded lazily
-fe = None
-features = []
-img_paths = []
+# Configuration
+UPLOAD_FOLDER = 'static/uploaded'
+Path(UPLOAD_FOLDER).mkdir(exist_ok=True)
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB upload limit
 
-def load_resources():
-    """Load ML resources only when needed to save memory"""
-    global fe, features, img_paths
+class ResourceLoader:
+    """Lazy-loaded resources with memory management"""
+    def __init__(self):
+        self.fe = None
+        self.features = None
+        self.img_paths = None
     
-    if fe is None:
-        # Initialize feature extractor only once
-        fe = FeatureExtractor()
-        
-        # Load features and image paths
-        features = []
-        img_paths = []
-        for feature_path in Path("./static/feature").glob("*.npy"):
-            features.append(np.load(feature_path))
-            img_paths.append(Path("./static/img") / (feature_path.stem + ".jpg"))
-        features = np.array(features)
+    def load(self):
+        if self.fe is None:
+            print("Initializing feature extractor...")
+            self.fe = FeatureExtractor()
+            
+            print("Loading features...")
+            features, img_paths = [], []
+            for feature_path in Path("./static/feature").glob("*.npy"):
+                features.append(np.load(feature_path))
+                img_paths.append(Path("./static/img") / (feature_path.stem + ".jpg"))
+            
+            self.features = np.array(features)
+            self.img_paths = img_paths
+            print(f"Loaded {len(self.features)} features")
+
+resource_loader = ResourceLoader()
 
 @app.route('/')
 def index():
@@ -36,32 +44,49 @@ def index():
 
 @app.route('/', methods=['GET', 'POST'])
 def recommend():
-    load_resources()  # Ensure resources are loaded
+    resource_loader.load()
     
     if request.method == 'POST':
+        if 'query_img' not in request.files:
+            return render_template('index.html', error="No file uploaded")
+        
         file = request.files['query_img']
+        if file.filename == '':
+            return render_template('index.html', error="No file selected")
 
-        # Save query image
-        img = Image.open(file.stream)
-        uploaded_img_path = "static/uploaded/" + datetime.now().isoformat().replace(":", ".") + "_" + file.filename
-        img.save(uploaded_img_path)
+        try:
+            # Save uploaded image
+            timestamp = datetime.now().isoformat().replace(":", ".")
+            uploaded_img_path = os.path.join(UPLOAD_FOLDER, f"{timestamp}_{file.filename}")
+            img = Image.open(file.stream)
+            img.save(uploaded_img_path)
 
-        # Run search
-        query = fe.extract(img)
-        dists = np.linalg.norm(features - query, axis=1)
-        ids = np.argsort(dists)[:30]
-        recommendations = [(img_paths[id].stem, img_paths[id]) for id in ids]
+            # Process image
+            query = resource_loader.fe.extract(img)
+            dists = np.linalg.norm(resource_loader.features - query, axis=1)
+            ids = np.argsort(dists)[:30]  # Top 30 results
+            recommendations = [
+                (resource_loader.img_paths[id].stem, resource_loader.img_paths[id]) 
+                for id in ids
+            ]
 
-        # Clean up memory
-        del query, dists, ids
-        gc.collect()
+            # Memory cleanup
+            del query, dists, ids
+            gc.collect()
 
-        return render_template('index.html',
-                           query_path=uploaded_img_path,
-                           recommendations=recommendations)
+            return render_template('index.html',
+                               query_path=uploaded_img_path,
+                               recommendations=recommendations)
+
+        except Exception as e:
+            return render_template('index.html', error=f"Error processing image: {str(e)}")
     
     return render_template('index.html')
 
+@app.route('/static/<path:filename>')
+def static_files(filename):
+    return send_from_directory('static', filename)
+
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 10000))  # For Render compatibility
+    port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port, debug=False, threaded=False)
