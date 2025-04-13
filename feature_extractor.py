@@ -9,12 +9,10 @@ class FeatureExtractor:
             weights='imagenet',
             include_top=False,
             pooling='avg',
-            input_shape=(224, 224, 3),
-            alpha=0.35
+            input_shape=(224, 224, 3)
         )
         self.model = Model(inputs=base_model.input, outputs=base_model.output)
-        self.model.make_predict_function()  # Fixed method name
-
+        
     def extract(self, img):
         img = img.resize((224, 224)).convert('RGB')
         x = image.img_to_array(img)
