@@ -68,23 +68,24 @@
     </div>
     {% endif %}
 
-    {% if recommendations %}
-    <div class="result-container">
-        <h3>Recommended Tourist Places</h3>
-        <div class="recommendation-grid">
-            {% for name, img_path in recommendations %}
-            <div class="recommendation-card">
-                <div class="card-image">
-                    <img src="{{ img_path }}" alt="{{ name }}">
-                    <div class="card-overlay">
-                        <span>{{ name }}</span>
-                    </div>
+<!-- Change the recommendations section to this: -->
+{% if recommendations %}
+<div class="result-container">
+    <h3>Recommended Tourist Places</h3>
+    <div class="recommendation-grid">
+        {% for name, img_url in recommendations %}
+        <div class="recommendation-card">
+            <div class="card-image">
+                <img src="{{ img_url }}" alt="{{ name }}" onerror="this.onerror=null;this.src='{{ url_for('static', filename='img/fallback.jpg') }}'">
+                <div class="card-overlay">
+                    <span>{{ name }}</span>
                 </div>
             </div>
-            {% endfor %}
         </div>
+        {% endfor %}
     </div>
-    {% endif %}
+</div>
+{% endif %}
 
     <footer>
         <div class="footer-content">
