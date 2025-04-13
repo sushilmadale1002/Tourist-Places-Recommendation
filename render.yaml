@@ -1,9 +1,21 @@
 services:
+  # Web Server (Flask)
   - type: web
-    name: travel-recommender
+    name: travel-recommender-web
     runtime: python
     buildCommand: |
       pip install -r requirements.txt
-      chmod +x start.sh  # Ensure script is executable
-    startCommand: ./start.sh
+      python offline.py --lightweight  # Initial feature extraction with memory saving
+    startCommand: gunicorn --workers=1 --threads=1 --timeout=300 --bind 0.0.0.0:$PORT server:app
+    envVars:
+      - key: PORT
+        value: 10000
+    plan: free
+
+  # Worker Service (Optional - for periodic updates)
+  - type: worker
+    name: travel-recommender-worker
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python offline.py --lightweight --interval 86400  # Runs daily
     plan: free
