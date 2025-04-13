@@ -1,21 +1,15 @@
 services:
-  # Web Server (Flask)
   - type: web
-    name: travel-recommender-web
+    name: travel-recommender
     runtime: python
     buildCommand: |
-      pip install -r requirements.txt
-      python offline.py --lightweight  # Initial feature extraction with memory saving
-    startCommand: gunicorn --workers=1 --threads=1 --timeout=300 --bind 0.0.0.0:$PORT server:app
+      pip install --no-cache-dir -r requirements.txt
+      python offline.py --batch-size 1  # Minimal memory usage
+    startCommand: |
+      gunicorn --workers=1 --threads=1 --timeout=300 --bind 0.0.0.0:$PORT server:app
     envVars:
       - key: PORT
         value: 10000
-    plan: free
-
-  # Worker Service (Optional - for periodic updates)
-  - type: worker
-    name: travel-recommender-worker
-    runtime: python
-    buildCommand: pip install -r requirements.txt
-    startCommand: python offline.py --lightweight --interval 86400  # Runs daily
-    plan: free
+      - key: TF_ENABLE_ONEDNN_OPTS
+        value: "0"  # Disables memory-intensive optimizations
+    plan: free  # Upgrade to starter if still failing
