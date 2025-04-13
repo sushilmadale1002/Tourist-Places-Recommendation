@@ -3,4 +3,6 @@ services:
     name: travel-recommender
     runtime: python
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn server:app
+    startCommand: gunicorn --workers=1 --threads=1 --timeout=120 server:app  # 👈 Key change!
+    env: python
+    plan: free
