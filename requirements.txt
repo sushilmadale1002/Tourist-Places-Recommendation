@@ -2,4 +2,4 @@ tensorflow-cpu==2.12.0
 flask==2.3.2
 gunicorn==21.2.0
 pillow==10.0.1
-numpy==1.24.4
+numpy==1.23.5  # Changed to be compatible with tensorflow-cpu 2.12.0
