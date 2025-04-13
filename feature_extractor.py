@@ -1,14 +1,19 @@
-from tensorflow.keras.applications import MobileNetV2  # Lighter than VGG16
+from tensorflow.keras.applications import MobileNetV2
 from tensorflow.keras.models import Model
 from tensorflow.keras.preprocessing import image
 import numpy as np
 
 class FeatureExtractor:
     def __init__(self):
-        base_model = MobileNetV2(weights='imagenet', include_top=False, 
-                               pooling='avg', input_shape=(224, 224, 3))
+        base_model = MobileNetV2(
+            weights='imagenet',
+            include_top=False,
+            pooling='avg',
+            input_shape=(224, 224, 3),
+            alpha=0.35  # Smaller model (35% of original)
+        )
         self.model = Model(inputs=base_model.input, outputs=base_model.output)
-        self.model._make_predict_function()  # For thread safety
+        self.model._make_predict_function()  # Thread safety
 
     def extract(self, img):
         img = img.resize((224, 224)).convert('RGB')
