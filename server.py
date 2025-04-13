@@ -3,19 +3,22 @@ import gc
 import numpy as np
 from pathlib import Path
 from datetime import datetime
-from flask import Flask, request, render_template
+from flask import Flask, request, render_template, url_for
 from PIL import Image
 from feature_extractor import FeatureExtractor
 
 app = Flask(__name__)
 
 # Configuration
-app.config['UPLOAD_FOLDER'] = 'static/uploaded'
-app.config['MAX_RECOMMENDATIONS'] = 5  # Show top 5 matches
-app.config['MAX_CONTENT_LENGTH'] = 8 * 1024 * 1024  # 8MB file limit
-app.config['ALLOWED_EXTENSIONS'] = {'jpg', 'jpeg', 'png'}
+app.config.update({
+    'UPLOAD_FOLDER': 'static/uploaded',
+    'IMG_FOLDER': 'static/img',  # Explicit image folder
+    'MAX_RECOMMENDATIONS': 5,
+    'MAX_CONTENT_LENGTH': 8 * 1024 * 1024,
+    'ALLOWED_EXTENSIONS': {'jpg', 'jpeg', 'png'}
+})
 
-# Ensure upload directory exists
+# Ensure directories exist
 Path(app.config['UPLOAD_FOLDER']).mkdir(parents=True, exist_ok=True)
 
 class ResourceLoader:
@@ -25,29 +28,33 @@ class ResourceLoader:
         self.img_paths = None
     
     def load(self):
-        """Lazy-load resources with shape validation"""
+        """Load resources with path validation"""
         if self.fe is None:
-            print("Initializing MobileNetV2 feature extractor...")
+            print("Initializing feature extractor...")
             self.fe = FeatureExtractor()
             
-            print("Loading features...")
+            print("Loading features and validating images...")
             features, img_paths = [], []
             for feature_path in sorted(Path("./static/feature").glob("*.npy")):
-                feat = np.load(feature_path)
-                # Validate feature dimensions
-                if feat.shape != (1280,):
-                    print(f"Skipping invalid feature: {feature_path} (shape: {feat.shape})")
+                img_path = Path(app.config['IMG_FOLDER']) / (feature_path.stem + ".jpg")
+                
+                if not img_path.exists():
+                    print(f"Warning: Missing image {img_path}")
                     continue
                     
-                features.append(feat)
-                img_paths.append(Path("./static/img") / (feature_path.stem + ".jpg"))
+                try:
+                    features.append(np.load(feature_path))
+                    img_paths.append(img_path)
+                    print(f"Loaded: {img_path.name}")
+                except Exception as e:
+                    print(f"Error loading {feature_path}: {str(e)}")
             
             if not features:
-                raise ValueError("No valid features found! Re-run offline.py")
+                raise ValueError("No valid features/images found!")
                 
             self.features = np.array(features)
             self.img_paths = img_paths
-            print(f"Successfully loaded {len(self.features)} features (shape: {self.features.shape})")
+            print(f"Successfully loaded {len(self.features)} valid image-feature pairs")
 
 resource_loader = ResourceLoader()
 
@@ -69,45 +76,43 @@ def recommend():
         return render_template('index.html', error="No file selected")
     
     if not allowed_file(file.filename):
-        return render_template('index.html', error="Invalid file type (only JPG/PNG)")
+        return render_template('index.html', error="Only JPG/PNG images allowed")
 
     try:
-        # Save uploaded file
+        # Save upload
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"{timestamp}_{file.filename}"
-        upload_path = Path(app.config['UPLOAD_FOLDER']) / filename
-        img = Image.open(file.stream)
-        img.save(upload_path)
+        upload_filename = f"{timestamp}_{file.filename}"
+        upload_path = Path(app.config['UPLOAD_FOLDER']) / upload_filename
+        Image.open(file.stream).save(upload_path)
 
-        # Process image
+        # Get recommendations
         resource_loader.load()
-        print("Extracting features from query image...")
-        query = resource_loader.fe.extract(img)
-        print(f"Query feature shape: {query.shape}")
-        
-        # Calculate similarities
+        query = resource_loader.fe.extract(Image.open(upload_path))
         dists = np.linalg.norm(resource_loader.features - query, axis=1)
         ids = np.argsort(dists)[:app.config['MAX_RECOMMENDATIONS']]
         
-        # Prepare results
-        recommendations = [
-            (resource_loader.img_paths[id].stem, 
-             f"img/{resource_loader.img_paths[id].name}")
-            for id in ids
-        ]
-        print(f"Top recommendations: {recommendations[:2]}...")
+        # Prepare results with verified paths
+        recommendations = []
+        for id in ids:
+            img_path = resource_loader.img_paths[id]
+            if img_path.exists():
+                recommendations.append((
+                    img_path.stem,
+                    url_for('static', filename=f'img/{img_path.name}')  # Correct URL
+                ))
+            else:
+                print(f"Missing recommendation image: {img_path}")
 
-        # Cleanup
-        del query, dists, ids
-        gc.collect()
+        if not recommendations:
+            raise ValueError("No valid recommendations found")
 
         return render_template('index.html',
-                           query_path=f"uploaded/{filename}",
+                           query_url=url_for('static', filename=f'uploaded/{upload_filename}'),
                            recommendations=recommendations)
 
     except Exception as e:
-        print(f"ERROR: {str(e)}")
-        return render_template('index.html', error=f"Processing error: {str(e)}")
+        print(f"Error: {str(e)}")
+        return render_template('index.html', error=str(e))
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
