@@ -1,0 +1,6 @@
+services:
+  - type: web
+    name: travel-recommender
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn server:app
