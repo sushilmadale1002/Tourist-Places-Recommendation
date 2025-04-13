@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tourist Places Recommendation</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Montserrat:wght@600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+</head>
+<body>
+    <div class="simple-header">
+        <div class="logo-container">
+            <i class="fas fa-map-marked-alt"></i>
+            <h1>Travel Recommender</h1>
+        </div>
+    </div>
+
+    <div class="floating-icons">
+        <i class="fas fa-mountain floating-icon floating-icon-1"></i>
+        <i class="fas fa-umbrella-beach floating-icon floating-icon-2"></i>
+        <i class="fas fa-tree floating-icon floating-icon-3"></i>
+        <i class="fas fa-water floating-icon floating-icon-4"></i>
+    </div>
+
+<!-- Hero Section with Background Image -->
+<div class="hero-section">
+    <div class="hero-overlay"></div>
+    <div class="hero-content">
+        <h1 class="hero-title">Discover Your Next Adventure</h1>
+        <p class="hero-subtitle">Let AI recommend breathtaking destinations based on your preferences</p>
+        <div class="hero-scroll">
+            <i class="fas fa-chevron-down"></i>
+        </div>
+    </div>
+</div>
+
+    <div class="form-container">
+        <div class="form-content">
+            <h2>Discover Similar Tourist Places</h2>
+            <p class="subtitle">Upload an image to find visually similar destinations</p>
+            <form action="/" method="post" enctype="multipart/form-data">
+                <div class="file-input-container">
+                    <label for="file-upload" class="custom-file-upload">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                        <span>Choose an image</span>
+                    </label>
+                    <input id="file-upload" type="file" name="query_img" accept="image/*" required>
+                    <p class="file-name" id="file-name">No file chosen</p>
+                </div>
+                <button type="submit" class="submit-btn">
+                    <i class="fas fa-search"></i> Find Similar Places
+                </button>
+            </form>
+        </div>
+    </div>
+
+    {% if query_path %}
+    <div class="result-container">
+        <div class="query-image">
+            <h3>Your Uploaded Image</h3>
+            <div class="image-wrapper">
+                <img src="{{ query_path }}" alt="Uploaded Image">
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if recommendations %}
+    <div class="result-container">
+        <h3>Recommended Tourist Places</h3>
+        <div class="recommendation-grid">
+            {% for name, img_path in recommendations %}
+            <div class="recommendation-card">
+                <div class="card-image">
+                    <img src="{{ img_path }}" alt="{{ name }}">
+                    <div class="card-overlay">
+                        <span>{{ name }}</span>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <footer>
+        <div class="footer-content">
+            <div class="footer-logo">
+                <i class="fas fa-map-marked-alt"></i>
+                <span>Travel Recommender</span>
+            </div>
+            <p>Discover your next adventure with AI-powered recommendations</p>
+        </div>
+    </footer>
+
+    <script>
+        // Display selected file name
+        document.getElementById('file-upload').addEventListener('change', function(e) {
+            const fileName = e.target.files[0] ? e.target.files[0].name : 'No file chosen';
+            document.getElementById('file-name').textContent = fileName;
+        });
+    </script>
+</body>
+</html>
