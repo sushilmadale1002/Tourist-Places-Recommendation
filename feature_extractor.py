@@ -10,15 +10,15 @@ class FeatureExtractor:
             include_top=False,
             pooling='avg',
             input_shape=(224, 224, 3),
-            alpha=0.35  # Smaller model (35% of original)
+            alpha=0.35
         )
         self.model = Model(inputs=base_model.input, outputs=base_model.output)
-        self.model._make_predict_function()  # Thread safety
+        self.model.make_predict_function()  # Fixed method name
 
     def extract(self, img):
         img = img.resize((224, 224)).convert('RGB')
         x = image.img_to_array(img)
         x = np.expand_dims(x, axis=0)
-        x = x / 127.5 - 1.0  # MobileNetV2 preprocessing
+        x = x / 127.5 - 1.0
         feature = self.model.predict(x, verbose=0)[0]
         return feature / np.linalg.norm(feature)
